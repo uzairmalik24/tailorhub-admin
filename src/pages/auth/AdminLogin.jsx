@@ -108,25 +108,21 @@ const AdminLogin = () => {
         setErrors(newErrors);
 
         if (Object.keys(newErrors).length === 0) {
-            console.log('Login attempt:', form);
-
-            // const resp = await post('/admin/login', form, { showSuccessToast: false });
-            // console.log(resp);
-
-            // if (resp.data.isSuccess) {
-                toast('success', 'Login successful');
-                // dispatch(setAdminToken(resp.data.token));
-                navigate('/dashboard');
-            // }
-
-            // Button click animation
-            gsap.to(buttonRef.current, {
-                scale: 0.95,
-                duration: 0.1,
-                yoyo: true,
-                repeat: 1,
-                ease: 'power2.inOut'
-            });
+            try {
+                const resp = await post('/admin/login', { email: form.email, password: form.password }, { showSuccessToast: false });
+                if (resp.data?.isSuccess && resp.data?.data?.accessToken) {
+                    dispatch(setAdminToken(resp.data.data.accessToken));
+                    localStorage.setItem('refreshToken', resp.data.data.refreshToken);
+                    toast('success', 'Welcome back');
+                    navigate('/dashboard');
+                }
+            } catch (err) {
+                gsap.to(cardRef.current, {
+                    x: [-10, 10, -10, 10, 0],
+                    duration: 0.4,
+                    ease: 'power2.inOut',
+                });
+            }
         } else {
             // Shake animation on error
             gsap.to(cardRef.current, {

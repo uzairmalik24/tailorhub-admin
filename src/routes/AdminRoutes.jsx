@@ -3,50 +3,28 @@ import NotFound from '../components/NotFound';
 import Admin from '../pages/admin/Admin';
 import AdminSettings from '../pages/admin/AdminSettings';
 import Dashboard from '../pages/admin/Dashboard';
-import AdminLogin from '../pages/auth/AdminLogin';
+import Shops from '../pages/admin/Shops';
+import ShopDetail from '../pages/admin/ShopDetail';
+import AuditLog from '../pages/admin/AuditLog';
 import ProtectedRoute from './guards/ProtectedRoute';
 
 export const adminRoutes = [
-
-    // Protected admin area
     {
         path: '/dashboard',
-        // element: <ProtectedRoute />,           
+        element: <ProtectedRoute />,
         children: [
             {
-                element: <AdminLayout />,          // ← layout with sidebar/navbar/etc
+                element: <AdminLayout />,
                 children: [
-                    {
-                        index: true,
-                        element: <Dashboard />,
-                    },
-                    {
-                        path: 'admins',
-                        element: <Admin />,
-                    },
-                    {
-                        path: 'settings',
-                        element: <AdminSettings />,
-                    },
-                    // Add more admin pages here...
-                    // {
-                    //   path: 'users',
-                    //   element: <AdminUsers />,
-                    // },
-
-                    // Admin 404 - only shown if authenticated
-                    {
-                        path: '*',
-                        element: <NotFound />,
-                    },
+                    { index: true,             element: <Dashboard /> },
+                    { path: 'shops',           element: <Shops /> },
+                    { path: 'shops/:id',       element: <ShopDetail /> },
+                    { path: 'audit',           element: <AuditLog /> },
+                    { path: 'admins',          element: <Admin /> },
+                    { path: 'settings',        element: <AdminSettings /> },
+                    { path: '*',               element: <NotFound /> },
                 ],
             },
         ],
-    },
-
-    // Optional: redirect /admin → /dashboard (if logged in)
-    {
-        path: '*',
-        element: <NotFound />,
     },
 ];

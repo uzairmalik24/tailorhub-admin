@@ -1,20 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { gsap } from 'gsap';
 import {
     FiHome,
     FiUsers,
-    FiShoppingBag,
-    FiBarChart2,
+    FiActivity,
     FiSettings,
-    FiFileText,
-    FiTag,
-    FiPackage,
     FiMenu,
     FiX,
     FiChevronDown,
     FiShield,
 } from 'react-icons/fi';
+import { selectAdmin } from '../../../store/slices/AdminSlice';
 
 const DashboardSidebar = ({ onToggle }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -23,63 +21,14 @@ const DashboardSidebar = ({ onToggle }) => {
     const location = useLocation();
     const sidebarRef = useRef(null);
     const submenuRefs = useRef({});
+    const admin = useSelector(selectAdmin);
 
     const menuItems = [
-        {
-            title: 'Dashboard',
-            icon: FiHome,
-            path: '/dashboard',
-        },
-        {
-            title: 'Admin',
-            icon: FiShield,
-            path: '/dashboard/admins',
-        },
-        {
-            title: 'Products',
-            icon: FiPackage,
-            path: '/dashboard/products',
-            submenu: [
-                { title: 'All Products', path: '/dashboard/products' },
-                { title: 'Add Product', path: '/dashboard/products/add' },
-                { title: 'Categories', path: '/dashboard/products/categories' },
-            ],
-        },
-        {
-            title: 'Orders',
-            icon: FiShoppingBag,
-            path: '/dashboard/orders',
-        },
-        {
-            title: 'Customers',
-            icon: FiUsers,
-            path: '/dashboard/customers',
-        },
-        {
-            title: 'Analytics',
-            icon: FiBarChart2,
-            path: '/dashboard/analytics',
-        },
-        {
-            title: 'Content',
-            icon: FiFileText,
-            path: '/dashboard/content',
-            submenu: [
-                { title: 'Pages', path: '/dashboard/content/pages' },
-                { title: 'Blog', path: '/dashboard/content/blog' },
-                { title: 'Media', path: '/dashboard/content/media' },
-            ],
-        },
-        {
-            title: 'Marketing',
-            icon: FiTag,
-            path: '/dashboard/marketing',
-        },
-        {
-            title: 'Settings',
-            icon: FiSettings,
-            path: '/dashboard/settings',
-        },
+        { title: 'Dashboard',    icon: FiHome,     path: '/dashboard'           },
+        { title: 'Shop Owners',  icon: FiUsers,    path: '/dashboard/shops'     },
+        { title: 'Audit Log',    icon: FiActivity, path: '/dashboard/audit'     },
+        { title: 'Admins',       icon: FiShield,   path: '/dashboard/admins'    },
+        { title: 'Settings',     icon: FiSettings, path: '/dashboard/settings'  },
     ];
 
     // Initialize state based on screen size
@@ -196,12 +145,10 @@ const DashboardSidebar = ({ onToggle }) => {
     };
 
     const isActive = (path) => {
-        if (location.pathname === path) return true;
-        const item = menuItems.find(m => m.path === path);
-        if (item?.submenu) {
-            return item.submenu.some(sub => location.pathname === sub.path);
-        }
-        return false;
+        // exact root match
+        if (path === '/dashboard') return location.pathname === '/dashboard';
+        // any sub-path under the menu item highlights it (e.g. /shops/:id keeps Shops active)
+        return location.pathname === path || location.pathname.startsWith(path + '/');
     };
 
     // Smooth entrance animation on mount (only once)
@@ -474,14 +421,16 @@ const DashboardSidebar = ({ onToggle }) => {
                 <div className="h-16 border-t border-border/30 flex items-center px-6">
                     <div className="flex items-center gap-3 overflow-hidden">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground text-xs font-bold flex-shrink-0">
-                            JD
+                            {admin?.name?.[0]?.toUpperCase() || 'A'}
                         </div>
                         {isOpen && (
                             <div className="sidebar-text min-w-0">
                                 <p className="text-sm font-medium text-foreground truncate">
-                                    John Doe
+                                    {admin?.name || 'Admin'}
                                 </p>
-                                <p className="text-xs text-muted-foreground truncate">Admin</p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                    {admin?.isSuperAdmin ? 'Super Admin' : 'Admin'}
+                                </p>
                             </div>
                         )}
                     </div>

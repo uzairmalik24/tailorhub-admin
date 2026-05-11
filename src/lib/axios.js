@@ -33,10 +33,12 @@ api.interceptors.response.use(
             const status = error.response.status;
 
             if (status === 401) {
-                // Unauthorized → usually logout + redirect to login
+                // Unauthorized → wipe both keys and redirect (skip if already on /login to avoid loop)
                 localStorage.removeItem('token');
-                window.location.href = '/login';
-                // Or better: use your router/navigate function
+                localStorage.removeItem('refreshToken');
+                if (window.location.pathname !== '/login') {
+                    window.location.href = '/login';
+                }
             }
 
             if (status === 403) {
