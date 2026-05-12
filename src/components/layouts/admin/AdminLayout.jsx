@@ -20,8 +20,7 @@ const AdminLayout = () => {
                 }}
             >
                 {/* Topbar */}
-                <AdminTopbar onToggleSidebar={() => {
-                }} />
+                <AdminTopbar />
 
                 {/* Page Content */}
                 <main className=" overflow-auto">
