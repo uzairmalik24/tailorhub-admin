@@ -150,14 +150,14 @@ const AdminTopbar = () => {
 
                                 {/* Menu Items */}
                                 <div className="py-2 bg-card">
-                                    <Link
+                                    {/* <Link
                                         to="/dashboard/profile"
                                         className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors text-foreground"
                                         onClick={() => setIsProfileOpen(false)}
                                     >
                                         <FiUser size={16} className="text-muted-foreground" />
                                         <span className="text-sm">My Profile</span>
-                                    </Link>
+                                    </Link> */}
                                     <Link
                                         to="/dashboard/settings"
                                         className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors text-foreground"
