@@ -50,7 +50,9 @@ export const useApi = () => {
                     response = await api.patch(endpoint, body, config);
                     break;
                 case 'delete':
-                    response = await api.delete(endpoint, { ...config, data: body });
+                    // Only attach data when caller actually provided a body — sending data:null
+                    // makes Express body-parser (strict mode) throw 400 "Malformed JSON"
+                    response = await api.delete(endpoint, body == null ? config : { ...config, data: body });
                     break;
                 default:
                     throw new Error(`Unsupported HTTP method: ${method}`);
