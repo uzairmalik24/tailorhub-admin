@@ -27,10 +27,55 @@ function StatTile({ icon: Icon, label, value, accent }) {
     );
 }
 
+// Smooth mount/unmount wrapper — keeps DOM during exit transition for 200ms
+function ModalShell({ open, onClose, children, maxWidth = 'max-w-md' }) {
+    const [mounted, setMounted] = useState(open);
+    const [visible, setVisible] = useState(false);
+
+    useEffect(() => {
+        if (open) {
+            setMounted(true);
+            // next frame so transition runs from initial state
+            requestAnimationFrame(() => setVisible(true));
+            document.body.style.overflow = 'hidden';
+        } else {
+            setVisible(false);
+            const t = setTimeout(() => setMounted(false), 200);
+            document.body.style.overflow = '';
+            return () => clearTimeout(t);
+        }
+    }, [open]);
+
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [open, onClose]);
+
+    if (!mounted) return null;
+
+    return (
+        <div
+            className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-opacity duration-200 ${visible ? 'opacity-100' : 'opacity-0'}`}
+            style={{ background: 'rgba(0,0,0,0.6)' }}
+            onClick={onClose}
+        >
+            <div
+                onClick={(e) => e.stopPropagation()}
+                className={`bg-card border border-border rounded-2xl p-6 w-full ${maxWidth} transition-all duration-200 ease-out ${
+                    visible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2'
+                }`}
+            >
+                {children}
+            </div>
+        </div>
+    );
+}
+
 function LimitsModal({ open, current, onClose, onSave, saving }) {
     const [limits, setLimits] = useState(current || { customers: 0, products: 0, employees: 0, orders: 0, stores: 0 });
     useEffect(() => { setLimits(current || {}); }, [current]);
-    if (!open) return null;
 
     const fields = [
         { key: 'customers', label: 'Customers' },
@@ -41,75 +86,70 @@ function LimitsModal({ open, current, onClose, onSave, saving }) {
     ];
 
     return (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-1">
-                    <h3 className="text-lg font-bold text-foreground">Update limits</h3>
-                    <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted/40">
-                        <FiX size={18} />
-                    </button>
-                </div>
-                <p className="text-xs text-muted-foreground mb-5">Set <code className="text-foreground">0</code> for unlimited.</p>
-                <div className="space-y-3">
-                    {fields.map(({ key, label }) => (
-                        <div key={key} className="flex items-center justify-between gap-4">
-                            <label className="text-sm font-medium text-foreground">{label}</label>
-                            <input
-                                type="number"
-                                min="0"
-                                value={limits[key] ?? ''}
-                                onChange={(e) => setLimits({ ...limits, [key]: Number(e.target.value) })}
-                                className="w-32 px-3 py-2 rounded-lg bg-muted/30 border border-border text-sm text-foreground tabular-nums text-right focus:outline-none focus:border-primary"
-                            />
-                        </div>
-                    ))}
-                </div>
-                <div className="flex items-center gap-3 mt-6">
-                    <button
-                        onClick={onClose}
-                        className="flex-1 px-4 py-2.5 rounded-xl bg-muted/40 text-sm font-medium text-foreground hover:bg-muted"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        disabled={saving}
-                        onClick={() => onSave(limits)}
-                        className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-50"
-                    >
-                        {saving ? 'Saving…' : 'Save'}
-                    </button>
-                </div>
+        <ModalShell open={open} onClose={onClose}>
+            <div className="flex items-center justify-between mb-1">
+                <h3 className="text-lg font-bold text-foreground">Update limits</h3>
+                <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted/40 transition-colors">
+                    <FiX size={18} />
+                </button>
             </div>
-        </div>
+            <p className="text-xs text-muted-foreground mb-5">Set <code className="text-foreground">0</code> for unlimited.</p>
+            <div className="space-y-3">
+                {fields.map(({ key, label }) => (
+                    <div key={key} className="flex items-center justify-between gap-4">
+                        <label className="text-sm font-medium text-foreground">{label}</label>
+                        <input
+                            type="number"
+                            min="0"
+                            value={limits[key] ?? ''}
+                            onChange={(e) => setLimits({ ...limits, [key]: Number(e.target.value) })}
+                            className="w-32 px-3 py-2 rounded-lg bg-muted/30 border border-border text-sm text-foreground tabular-nums text-right focus:outline-none focus:border-primary"
+                        />
+                    </div>
+                ))}
+            </div>
+            <div className="flex items-center gap-3 mt-6">
+                <button
+                    onClick={onClose}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-muted/40 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                >
+                    Cancel
+                </button>
+                <button
+                    disabled={saving}
+                    onClick={() => onSave(limits)}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
+                >
+                    {saving ? 'Saving…' : 'Save'}
+                </button>
+            </div>
+        </ModalShell>
     );
 }
 
 function ConfirmModal({ open, title, body, danger, onCancel, onConfirm, busy }) {
-    if (!open) return null;
     return (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onCancel}>
-            <div className="bg-card border border-border rounded-2xl p-6 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
-                <h3 className="text-lg font-bold text-foreground mb-2">{title}</h3>
-                <p className="text-sm text-muted-foreground mb-6">{body}</p>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={onCancel}
-                        className="flex-1 px-4 py-2.5 rounded-xl bg-muted/40 text-sm font-medium text-foreground hover:bg-muted"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        disabled={busy}
-                        onClick={onConfirm}
-                        className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 ${
-                            danger ? 'bg-red-600' : 'bg-primary'
-                        }`}
-                    >
-                        {busy ? 'Working…' : 'Confirm'}
-                    </button>
-                </div>
+        <ModalShell open={open} onClose={onCancel} maxWidth="max-w-sm">
+            <h3 className="text-lg font-bold text-foreground mb-2">{title}</h3>
+            <p className="text-sm text-muted-foreground mb-6">{body}</p>
+            <div className="flex items-center gap-3">
+                <button
+                    onClick={onCancel}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-muted/40 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+                >
+                    Cancel
+                </button>
+                <button
+                    disabled={busy}
+                    onClick={onConfirm}
+                    className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-opacity ${
+                        danger ? 'bg-red-600' : 'bg-primary'
+                    }`}
+                >
+                    {busy ? 'Working…' : 'Confirm'}
+                </button>
             </div>
-        </div>
+        </ModalShell>
     );
 }
 

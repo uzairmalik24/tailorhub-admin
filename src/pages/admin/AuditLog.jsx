@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FiSearch, FiActivity, FiArrowRight } from 'react-icons/fi';
+import { FiSearch, FiActivity, FiArrowRight, FiChevronDown, FiFilter } from 'react-icons/fi';
 import { useApi } from '../../hooks/useApi';
+import {
+    DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from '../../components/ui/dropdown-menu';
 
 const ACTIONS = [
     '', // all
@@ -66,15 +69,20 @@ export default function AuditLog() {
                         className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-card border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
                     />
                 </div>
-                <select
-                    value={action}
-                    onChange={(e) => { setAction(e.target.value); setPage(1); }}
-                    className="px-4 py-2.5 rounded-xl bg-card border border-border text-sm text-foreground focus:outline-none focus:border-primary"
-                >
-                    {ACTIONS.map((a) => (
-                        <option key={a || 'all'} value={a}>{a || 'All actions'}</option>
-                    ))}
-                </select>
+                <DropdownMenu>
+                    <DropdownMenuTrigger className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-card border border-border text-sm text-foreground hover:border-primary/40 transition-colors">
+                        <FiFilter size={13} />
+                        {action || 'All actions'}
+                        <FiChevronDown size={13} className="ml-auto opacity-60" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                        {ACTIONS.map((a) => (
+                            <DropdownMenuItem key={a || 'all'} onSelect={() => { setAction(a); setPage(1); }}>
+                                {a || 'All actions'}
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
 
             {/* List */}

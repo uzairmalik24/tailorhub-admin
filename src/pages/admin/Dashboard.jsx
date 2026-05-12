@@ -5,9 +5,12 @@ import {
 } from 'recharts';
 import {
     FiUsers, FiPackage, FiShoppingBag, FiUserCheck, FiClock, FiSlash,
-    FiTrendingUp, FiEye, FiActivity, FiArrowRight,
+    FiTrendingUp, FiEye, FiActivity, FiArrowRight, FiChevronDown,
 } from 'react-icons/fi';
 import { useApi } from '../../hooks/useApi';
+import {
+    DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from '../../components/ui/dropdown-menu';
 
 const KPI_TILES = [
     { key: 'owners.total',     label: 'Shop Owners',  icon: FiUsers,        accent: 'text-blue-500',    bg: 'bg-blue-500/10' },
@@ -192,16 +195,19 @@ export default function Dashboard() {
                 <div className="bg-card border border-border rounded-2xl p-6">
                     <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-bold text-foreground">Top shops</h3>
-                        <select
-                            value={topMetric}
-                            onChange={(e) => setTopMetric(e.target.value)}
-                            className="text-xs bg-muted/40 border border-border rounded-lg px-2 py-1 text-foreground"
-                        >
-                            <option value="orders">Orders</option>
-                            <option value="customers">Customers</option>
-                            <option value="products">Products</option>
-                            <option value="views">Views</option>
-                        </select>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger className="inline-flex items-center gap-1.5 text-xs font-medium bg-muted/40 hover:bg-muted border border-border rounded-lg px-3 py-1.5 text-foreground transition-colors">
+                                {topMetric.charAt(0).toUpperCase() + topMetric.slice(1)}
+                                <FiChevronDown size={12} />
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                {['orders', 'customers', 'products', 'views'].map((m) => (
+                                    <DropdownMenuItem key={m} onSelect={() => setTopMetric(m)}>
+                                        {m.charAt(0).toUpperCase() + m.slice(1)}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                     {topShops.length === 0 ? (
                         <p className="text-sm text-muted-foreground py-6 text-center">No data</p>

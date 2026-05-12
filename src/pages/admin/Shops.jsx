@@ -91,6 +91,9 @@ export default function Shops() {
                             <tr className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                 <th className="px-5 py-3.5">Shop</th>
                                 <th className="px-5 py-3.5">Phone</th>
+                                <th className="px-5 py-3.5 text-right">Customers</th>
+                                <th className="px-5 py-3.5 text-right">Orders</th>
+                                <th className="px-5 py-3.5 text-right">Products</th>
                                 <th className="px-5 py-3.5">Status</th>
                                 <th className="px-5 py-3.5">Joined</th>
                                 <th className="px-5 py-3.5"></th>
@@ -98,9 +101,9 @@ export default function Shops() {
                         </thead>
                         <tbody className="divide-y divide-border">
                             {loading && shops.length === 0 ? (
-                                <tr><td colSpan={5} className="px-5 py-10 text-center text-muted-foreground">Loading…</td></tr>
+                                <tr><td colSpan={8} className="px-5 py-10 text-center text-muted-foreground">Loading…</td></tr>
                             ) : shops.length === 0 ? (
-                                <tr><td colSpan={5} className="px-5 py-10 text-center text-muted-foreground">No shops match these filters</td></tr>
+                                <tr><td colSpan={8} className="px-5 py-10 text-center text-muted-foreground">No shops match these filters</td></tr>
                             ) : (
                                 shops.map((s) => (
                                     <tr key={s._id} className="hover:bg-muted/20 transition-colors">
@@ -120,6 +123,9 @@ export default function Shops() {
                                             </div>
                                         </td>
                                         <td className="px-5 py-4 text-muted-foreground tabular-nums">{s.phone}</td>
+                                        <td className="px-5 py-4 text-right text-foreground tabular-nums font-medium">{s.counts?.customers ?? 0}</td>
+                                        <td className="px-5 py-4 text-right text-foreground tabular-nums font-medium">{s.counts?.orders ?? 0}</td>
+                                        <td className="px-5 py-4 text-right text-foreground tabular-nums font-medium">{s.counts?.products ?? 0}</td>
                                         <td className="px-5 py-4">
                                             <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold border ${STATUS_BADGE[s.status] || ''}`}>
                                                 {s.status}
@@ -129,7 +135,7 @@ export default function Shops() {
                                         <td className="px-5 py-4 text-right">
                                             <Link
                                                 to={`/dashboard/shops/${s._id}`}
-                                                className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+                                                className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline whitespace-nowrap"
                                             >
                                                 Manage <FiArrowRight size={13} />
                                             </Link>

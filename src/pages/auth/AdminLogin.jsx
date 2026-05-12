@@ -20,7 +20,6 @@ const AdminLogin = () => {
     const { post, isLoading, error, clearError } = useApi();
     const dispatch = useDispatch();
 
-    const logoRef = useRef(null);
     const headingRef = useRef(null);
     const cardRef = useRef(null);
     const formRef = useRef(null);
@@ -30,62 +29,10 @@ const AdminLogin = () => {
     useEffect(() => {
         const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
-        // Logo animation with rotation and scale
-        tl.fromTo(
-            logoRef.current,
-            { scale: 0, rotation: -180, opacity: 0 },
-            { scale: 1, rotation: 0, opacity: 1, duration: 0.8, ease: 'back.out(1.7)' }
-        );
-
-        // Heading animation
-        tl.fromTo(
-            headingRef.current.children,
-            { opacity: 0, y: 20 },
-            { opacity: 1, y: 0, duration: 0.6, stagger: 0.1 },
-            '-=0.4'
-        );
-
-        // Card animation with scale
-        tl.fromTo(
-            cardRef.current,
-            { opacity: 0, y: 30, scale: 0.95 },
-            { opacity: 1, y: 0, scale: 1, duration: 0.7 },
-            '-=0.3'
-        );
-
-        // Form fields animation with stagger
-        tl.fromTo(
-            formRef.current.children,
-            { opacity: 0, x: -20 },
-            { opacity: 1, x: 0, duration: 0.5, stagger: 0.1 },
-            '-=0.4'
-        );
-
-        // Footer animation
-        tl.fromTo(
-            footerRef.current,
-            { opacity: 0, y: 10 },
-            { opacity: 1, y: 0, duration: 0.5 },
-            '-=0.2'
-        );
-
-        // Continuous floating animation for logo
-        gsap.to(logoRef.current, {
-            y: -5,
-            duration: 2,
-            repeat: -1,
-            yoyo: true,
-            ease: 'sine.inOut'
-        });
-
-        // Subtle pulse animation for primary button
-        gsap.to(buttonRef.current, {
-            boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.3)',
-            duration: 2,
-            repeat: -1,
-            yoyo: true,
-            ease: 'sine.inOut'
-        });
+        tl.fromTo(headingRef.current.children, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.08 });
+        tl.fromTo(cardRef.current,             { opacity: 0, y: 24, scale: 0.97 }, { opacity: 1, y: 0, scale: 1, duration: 0.55 }, '-=0.25');
+        tl.fromTo(formRef.current.children,    { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.08 }, '-=0.3');
+        tl.fromTo(footerRef.current,           { opacity: 0, y: 8 },  { opacity: 1, y: 0, duration: 0.4 }, '-=0.2');
     }, []);
 
     const handleSubmit = async (e) => {
@@ -145,23 +92,13 @@ const AdminLogin = () => {
             </div>
 
             <div className="w-full max-w-md relative z-10">
-                {/* Logo / Brand */}
-                <div className="text-center mb-8">
-                    <div
-                        ref={logoRef}
-                        className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground text-2xl font-bold shadow-lg shadow-primary/20 mb-6 relative"
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent rounded-xl"></div>
-                        <span className="relative">AF</span>
-                    </div>
-                    <div ref={headingRef}>
-                        <h1 className="text-2xl font-bold text-foreground tracking-tight mb-1">
-                            Welcome Back
-                        </h1>
-                        <p className="text-sm text-muted-foreground">
-                            Sign in to access your admin portal
-                        </p>
-                    </div>
+                <div ref={headingRef} className="text-center mb-8">
+                    <h1 className="text-2xl font-bold text-foreground tracking-tight mb-1">
+                        Sign in
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                        Authorised personnel only
+                    </p>
                 </div>
 
                 {/* Login Card */}
@@ -244,18 +181,6 @@ const AdminLogin = () => {
                         </div>
                     </div>
 
-                    {/* Alternative actions */}
-                    <div className="px-8 py-5 bg-muted/20 border-t border-border/30 text-center">
-                        <p className="text-sm text-muted-foreground">
-                            Don't have an account?{' '}
-                            <a
-                                href="#"
-                                className="text-primary font-semibold hover:text-primary/80 transition-colors"
-                            >
-                                Create one
-                            </a>
-                        </p>
-                    </div>
                 </div>
 
                 {/* Security note */}
