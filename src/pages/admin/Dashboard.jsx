@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -7,7 +7,8 @@ import {
     FiUsers, FiPackage, FiShoppingBag, FiUserCheck, FiClock, FiSlash,
     FiTrendingUp, FiEye, FiActivity, FiArrowRight, FiChevronDown,
 } from 'react-icons/fi';
-import { useApi } from '../../hooks/useApi';
+import { useCachedApi } from '../../hooks/useCachedApi';
+import { Skeleton, SkeletonCard } from '../../components/ui/Skeleton';
 import {
     DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '../../components/ui/dropdown-menu';
@@ -51,33 +52,19 @@ function timeAgo(date) {
 }
 
 export default function Dashboard() {
-    const { get } = useApi();
-    const [overview,  setOverview]  = useState(null);
-    const [series,    setSeries]    = useState([]);
-    const [activity,  setActivity]  = useState([]);
-    const [topShops,  setTopShops]  = useState([]);
     const [topMetric, setTopMetric] = useState('orders');
     const [days,      setDays]      = useState(30);
 
-    useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            try {
-                const [ov, ts, act, top] = await Promise.all([
-                    get('/dashboard/overview',        {},       { showSuccessToast: false }),
-                    get('/dashboard/timeseries',      { days }, { showSuccessToast: false }),
-                    get('/dashboard/recent-activity', {},       { showSuccessToast: false }),
-                    get('/dashboard/top-shops',       { metric: topMetric, limit: 5 }, { showSuccessToast: false }),
-                ]);
-                if (cancelled) return;
-                setOverview(ov.data?.data || null);
-                setSeries(ts.data?.data?.series || []);
-                setActivity(act.data?.data?.items || []);
-                setTopShops(top.data?.data?.items || []);
-            } catch { /* useApi already toasted */ }
-        })();
-        return () => { cancelled = true; };
-    }, [days, topMetric]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Each call uses an independent cache key → independent TTL + dedup
+    const overviewQ = useCachedApi('/dashboard/overview',        null,            { ttl: 30_000  });
+    const seriesQ   = useCachedApi('/dashboard/timeseries',      { days },        { ttl: 60_000  });
+    const activityQ = useCachedApi('/dashboard/recent-activity', null,            { ttl: 15_000  });
+    const topQ      = useCachedApi('/dashboard/top-shops',       { metric: topMetric, limit: 5 }, { ttl: 60_000 });
+
+    const overview = overviewQ.data?.data || null;
+    const series   = seriesQ.data?.data?.series   || [];
+    const activity = activityQ.data?.data?.items  || [];
+    const topShops = topQ.data?.data?.items       || [];
 
     return (
         <div className="p-4 md:p-6 space-y-6">
@@ -106,17 +93,19 @@ export default function Dashboard() {
 
             {/* KPI grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {KPI_TILES.map(({ key, label, icon: Icon, accent, bg }) => (
-                    <div key={key} className="bg-card border border-border rounded-2xl p-5">
-                        <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center mb-4`}>
-                            <Icon className={accent} size={18} />
+                {overviewQ.isLoading
+                    ? KPI_TILES.map((t) => <SkeletonCard key={t.key} />)
+                    : KPI_TILES.map(({ key, label, icon: Icon, accent, bg }) => (
+                        <div key={key} className="bg-card border border-border rounded-2xl p-5">
+                            <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center mb-4`}>
+                                <Icon className={accent} size={18} />
+                            </div>
+                            <p className="text-2xl font-bold text-foreground tabular-nums leading-none">
+                                {(getNested(overview, key) ?? 0).toLocaleString()}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-2">{label}</p>
                         </div>
-                        <p className="text-2xl font-bold text-foreground tabular-nums leading-none">
-                            {overview ? (getNested(overview, key) ?? 0).toLocaleString() : '—'}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-2">{label}</p>
-                    </div>
-                ))}
+                    ))}
             </div>
 
             {/* Activity chart */}
@@ -127,6 +116,9 @@ export default function Dashboard() {
                         <p className="text-sm text-muted-foreground">Signups, orders & views over time</p>
                     </div>
                 </div>
+                {seriesQ.isLoading ? (
+                    <Skeleton className="h-75 w-full rounded-xl" />
+                ) : (
                 <ResponsiveContainer width="100%" height={300}>
                     <AreaChart data={series}>
                         <defs>
@@ -153,6 +145,7 @@ export default function Dashboard() {
                         <Area type="monotone" dataKey="views"   stroke="#f59e0b" strokeWidth={2} fill="url(#g-views)" />
                     </AreaChart>
                 </ResponsiveContainer>
+                )}
             </div>
 
             {/* Recent activity + Top shops */}
@@ -168,7 +161,19 @@ export default function Dashboard() {
                             View all <FiArrowRight size={13} />
                         </Link>
                     </div>
-                    {activity.length === 0 ? (
+                    {activityQ.isLoading ? (
+                        <div className="space-y-4">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                                <div key={i} className="flex items-center gap-3">
+                                    <Skeleton className="w-9 h-9 rounded-lg" />
+                                    <div className="flex-1 space-y-2">
+                                        <Skeleton className="h-3 w-3/4" />
+                                        <Skeleton className="h-3 w-1/4" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : activity.length === 0 ? (
                         <p className="text-sm text-muted-foreground py-6 text-center">No activity yet</p>
                     ) : (
                         <div className="divide-y divide-border">
@@ -209,7 +214,20 @@ export default function Dashboard() {
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
-                    {topShops.length === 0 ? (
+                    {topQ.isLoading ? (
+                        <div className="space-y-3">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                                <div key={i} className="flex items-center gap-3 p-2">
+                                    <Skeleton className="w-6 h-3" />
+                                    <div className="flex-1 space-y-2">
+                                        <Skeleton className="h-3 w-2/3" />
+                                        <Skeleton className="h-2.5 w-1/3" />
+                                    </div>
+                                    <Skeleton className="w-8 h-4" />
+                                </div>
+                            ))}
+                        </div>
+                    ) : topShops.length === 0 ? (
                         <p className="text-sm text-muted-foreground py-6 text-center">No data</p>
                     ) : (
                         <div className="space-y-3">

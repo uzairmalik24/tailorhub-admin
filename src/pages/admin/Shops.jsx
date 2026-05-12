@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiSearch, FiArrowRight, FiUsers, FiClock, FiSlash, FiCheckCircle } from 'react-icons/fi';
-import { useApi } from '../../hooks/useApi';
+import { useCachedApi } from '../../hooks/useCachedApi';
+import { Skeleton } from '../../components/ui/Skeleton';
 
 const STATUS_TABS = [
     { key: '',          label: 'All',       Icon: FiUsers       },
@@ -21,29 +22,21 @@ function formatDate(d) {
 }
 
 export default function Shops() {
-    const { get } = useApi();
-    const [shops,    setShops]    = useState([]);
     const [status,   setStatus]   = useState('');
     const [search,   setSearch]   = useState('');
+    const [debounced, setDebounced] = useState('');
     const [page,     setPage]     = useState(1);
-    const [meta,     setMeta]     = useState({ total: 0, pages: 1 });
-    const [loading,  setLoading]  = useState(false);
 
+    // Debounce search separately so we don't re-key the cache on every keystroke
     useEffect(() => {
-        let cancelled = false;
-        const t = setTimeout(() => {
-            (async () => {
-                setLoading(true);
-                try {
-                    const resp = await get('/shops', { status, search, page, limit: 20 }, { showSuccessToast: false });
-                    if (cancelled) return;
-                    setShops(resp.data?.data?.data || []);
-                    setMeta(resp.data?.data?.pagination || { total: 0, pages: 1 });
-                } catch { /* toasted */ } finally { setLoading(false); }
-            })();
-        }, search ? 300 : 0); // debounce search only
-        return () => { cancelled = true; clearTimeout(t); };
-    }, [status, search, page]); // eslint-disable-line react-hooks/exhaustive-deps
+        const t = setTimeout(() => setDebounced(search), 300);
+        return () => clearTimeout(t);
+    }, [search]);
+
+    const { data, isLoading } = useCachedApi('/shops', { status, search: debounced, page, limit: 20 }, { ttl: 30_000 });
+
+    const shops = data?.data?.data || [];
+    const meta  = data?.data?.pagination || { total: 0, pages: 1 };
 
     return (
         <div className="p-4 md:p-6 space-y-6">
@@ -100,8 +93,27 @@ export default function Shops() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                            {loading && shops.length === 0 ? (
-                                <tr><td colSpan={8} className="px-5 py-10 text-center text-muted-foreground">Loading…</td></tr>
+                            {isLoading ? (
+                                Array.from({ length: 6 }).map((_, i) => (
+                                    <tr key={i}>
+                                        <td className="px-5 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <Skeleton className="w-9 h-9 rounded-lg" />
+                                                <div className="space-y-2">
+                                                    <Skeleton className="h-3 w-32" />
+                                                    <Skeleton className="h-2.5 w-40" />
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-5 py-4"><Skeleton className="h-3 w-24" /></td>
+                                        <td className="px-5 py-4"><Skeleton className="h-3 w-8 ml-auto" /></td>
+                                        <td className="px-5 py-4"><Skeleton className="h-3 w-8 ml-auto" /></td>
+                                        <td className="px-5 py-4"><Skeleton className="h-3 w-8 ml-auto" /></td>
+                                        <td className="px-5 py-4"><Skeleton className="h-5 w-20 rounded-full" /></td>
+                                        <td className="px-5 py-4"><Skeleton className="h-3 w-20" /></td>
+                                        <td className="px-5 py-4"><Skeleton className="h-3 w-16 ml-auto" /></td>
+                                    </tr>
+                                ))
                             ) : shops.length === 0 ? (
                                 <tr><td colSpan={8} className="px-5 py-10 text-center text-muted-foreground">No shops match these filters</td></tr>
                             ) : (

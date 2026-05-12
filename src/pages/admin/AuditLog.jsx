@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiSearch, FiActivity, FiArrowRight, FiChevronDown, FiFilter } from 'react-icons/fi';
-import { useApi } from '../../hooks/useApi';
+import { useCachedApi } from '../../hooks/useCachedApi';
+import { Skeleton } from '../../components/ui/Skeleton';
 import {
     DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '../../components/ui/dropdown-menu';
@@ -26,29 +27,19 @@ const ACTION_BADGE = {
 };
 
 export default function AuditLog() {
-    const { get } = useApi();
-    const [items,   setItems]   = useState([]);
-    const [meta,    setMeta]    = useState({ total: 0, pages: 1 });
-    const [action,  setAction]  = useState('');
-    const [search,  setSearch]  = useState('');
-    const [page,    setPage]    = useState(1);
-    const [loading, setLoading] = useState(false);
+    const [action,    setAction]    = useState('');
+    const [search,    setSearch]    = useState('');
+    const [debounced, setDebounced] = useState('');
+    const [page,      setPage]      = useState(1);
 
     useEffect(() => {
-        let cancelled = false;
-        const t = setTimeout(() => {
-            (async () => {
-                setLoading(true);
-                try {
-                    const resp = await get('/audit', { action, search, page, limit: 30 }, { showSuccessToast: false });
-                    if (cancelled) return;
-                    setItems(resp.data?.data?.data || []);
-                    setMeta(resp.data?.data?.pagination || { total: 0, pages: 1 });
-                } catch { /* toasted */ } finally { setLoading(false); }
-            })();
-        }, search ? 300 : 0);
-        return () => { cancelled = true; clearTimeout(t); };
-    }, [action, search, page]); // eslint-disable-line react-hooks/exhaustive-deps
+        const t = setTimeout(() => setDebounced(search), 300);
+        return () => clearTimeout(t);
+    }, [search]);
+
+    const { data, isLoading } = useCachedApi('/audit', { action, search: debounced, page, limit: 30 }, { ttl: 15_000 });
+    const items = data?.data?.data || [];
+    const meta  = data?.data?.pagination || { total: 0, pages: 1 };
 
     return (
         <div className="p-4 md:p-6 space-y-6">
@@ -87,8 +78,22 @@ export default function AuditLog() {
 
             {/* List */}
             <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                {loading && items.length === 0 ? (
-                    <div className="p-10 text-center text-muted-foreground text-sm">Loading…</div>
+                {isLoading ? (
+                    <div className="divide-y divide-border">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                            <div key={i} className="flex items-start gap-4 p-5">
+                                <Skeleton className="w-9 h-9 rounded-lg" />
+                                <div className="flex-1 space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <Skeleton className="h-3 w-32" />
+                                        <Skeleton className="h-4 w-24 rounded-full" />
+                                    </div>
+                                    <Skeleton className="h-3 w-2/3" />
+                                </div>
+                                <Skeleton className="h-3 w-32" />
+                            </div>
+                        ))}
+                    </div>
                 ) : items.length === 0 ? (
                     <div className="p-10 text-center text-muted-foreground text-sm">No entries match these filters</div>
                 ) : (

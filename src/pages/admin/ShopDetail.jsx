@@ -3,9 +3,11 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
     FiArrowLeft, FiCheckCircle, FiSlash, FiTrash2, FiEdit2, FiSliders,
     FiUsers, FiPackage, FiShoppingBag, FiUserCheck, FiEye, FiClock, FiStar, FiX,
+    FiExternalLink, FiTrendingUp,
 } from 'react-icons/fi';
 import { useApi } from '../../hooks/useApi';
-import { toast } from 'toasticom';
+import { useCachedApi, invalidateCache } from '../../hooks/useCachedApi';
+import { Skeleton, SkeletonCard } from '../../components/ui/Skeleton';
 
 const STATUS_BADGE = {
     approved:  'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
@@ -156,44 +158,60 @@ function ConfirmModal({ open, title, body, danger, onCancel, onConfirm, busy }) 
 export default function ShopDetail() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { get, patch, delete: del } = useApi();
-    const [data,        setData]        = useState(null);
-    const [loading,     setLoading]     = useState(true);
+    const { patch, delete: del } = useApi();
     const [busy,        setBusy]        = useState(false);
     const [limitsOpen,  setLimitsOpen]  = useState(false);
-    const [confirm,     setConfirm]     = useState(null); // { type, title, body, action }
+    const [confirm,     setConfirm]     = useState(null);
 
-    const load = async () => {
-        setLoading(true);
-        try {
-            const resp = await get(`/shops/${id}`, {}, { showSuccessToast: false });
-            setData(resp.data?.data || null);
-        } catch { /* toasted */ } finally { setLoading(false); }
+    // Main detail (cached, 30s TTL)
+    const detailQ = useCachedApi(`/shops/${id}`, null, { ttl: 30_000 });
+
+    // Employees inline (small list, cached longer)
+    const employeesQ = useCachedApi(`/shops/${id}/employees`, null, { ttl: 60_000 });
+
+    // Store + products: lazy — only fetched when user asks
+    const [showStore, setShowStore] = useState(false);
+    const storeQ = useCachedApi(
+        `/shops/${id}/store-with-products`,
+        null,
+        { ttl: 60_000, enabled: showStore },
+    );
+
+    if (detailQ.isLoading) return <ShopDetailSkeleton />;
+    if (!detailQ.data?.data?.shop) {
+        return <div className="p-6 text-muted-foreground">Shop not found</div>;
+    }
+
+    const data  = detailQ.data.data;
+    const { shop, stats } = data;
+    const store = data.store;
+
+    // After any mutation: clear all shop-related cache + refresh detail
+    const refresh = async () => {
+        invalidateCache('/shops');
+        invalidateCache('/dashboard');
+        invalidateCache('/audit');
+        await detailQ.refresh();
     };
-
-    useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    if (loading) return <div className="p-6 text-muted-foreground">Loading…</div>;
-    if (!data?.shop) return <div className="p-6 text-muted-foreground">Shop not found</div>;
-
-    const { shop, stats, store } = data;
 
     const doApprove = async () => {
         setBusy(true);
-        try { await patch(`/shops/${id}/approve`); await load(); } finally { setBusy(false); setConfirm(null); }
+        try { await patch(`/shops/${id}/approve`); await refresh(); } finally { setBusy(false); setConfirm(null); }
     };
     const doBlock = async () => {
         setBusy(true);
-        try { await patch(`/shops/${id}/block`); await load(); } finally { setBusy(false); setConfirm(null); }
+        try { await patch(`/shops/${id}/block`); await refresh(); } finally { setBusy(false); setConfirm(null); }
     };
     const doUnblock = async () => {
         setBusy(true);
-        try { await patch(`/shops/${id}/unblock`); await load(); } finally { setBusy(false); setConfirm(null); }
+        try { await patch(`/shops/${id}/unblock`); await refresh(); } finally { setBusy(false); setConfirm(null); }
     };
     const doDelete = async () => {
         setBusy(true);
         try {
             await del(`/shops/${id}`);
+            invalidateCache('/shops');
+            invalidateCache('/dashboard');
             navigate('/dashboard/shops');
         } finally { setBusy(false); setConfirm(null); }
     };
@@ -202,7 +220,7 @@ export default function ShopDetail() {
         try {
             await patch(`/shops/${id}/limits`, limits);
             setLimitsOpen(false);
-            await load();
+            await refresh();
         } finally { setBusy(false); }
     };
 
@@ -359,6 +377,21 @@ export default function ShopDetail() {
                 </div>
             </div>
 
+            {/* Employees */}
+            <EmployeesSection
+                isLoading={employeesQ.isLoading}
+                employees={employeesQ.data?.data?.employees || []}
+            />
+
+            {/* Store + products (on-demand) */}
+            <StoreSection
+                show={showStore}
+                onToggle={() => setShowStore((s) => !s)}
+                isLoading={storeQ.isLoading && showStore}
+                storeData={storeQ.data?.data}
+                hasStore={!!store}
+            />
+
             {/* Recent activity for this shop */}
             {data.recentLogs?.length > 0 && (
                 <div className="bg-card border border-border rounded-2xl p-6">
@@ -392,6 +425,200 @@ export default function ShopDetail() {
                 onCancel={() => setConfirm(null)}
                 onConfirm={() => confirm?.action()}
             />
+        </div>
+    );
+}
+
+// ── Employees ────────────────────────────────────────────────────────────────
+function EmployeesSection({ isLoading, employees }) {
+    return (
+        <div className="bg-card border border-border rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-5">
+                <h3 className="text-lg font-bold text-foreground">Employees</h3>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                    {isLoading ? '—' : `${employees.length} total`}
+                </span>
+            </div>
+            {isLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="flex items-center gap-3 p-3 rounded-xl border border-border">
+                            <Skeleton className="w-10 h-10 rounded-lg" />
+                            <div className="flex-1 space-y-2">
+                                <Skeleton className="h-3 w-2/3" />
+                                <Skeleton className="h-2.5 w-1/2" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : employees.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">No employees added yet</p>
+            ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {employees.map((e) => (
+                        <div key={e._id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/10">
+                            {e.picture ? (
+                                <img src={e.picture} alt={e.name} className="w-10 h-10 rounded-lg object-cover" />
+                            ) : (
+                                <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold shrink-0">
+                                    {e.name?.[0]?.toUpperCase()}
+                                </div>
+                            )}
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold text-foreground truncate">{e.name}</p>
+                                <p className="text-xs text-muted-foreground truncate">{e.phone}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ── Store + Products (on-demand) ─────────────────────────────────────────────
+function StoreSection({ show, onToggle, isLoading, storeData, hasStore }) {
+    const store     = storeData?.store;
+    const products  = storeData?.products  || [];
+    const analytics = storeData?.analytics || null;
+
+    return (
+        <div className="bg-card border border-border rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-5">
+                <div>
+                    <h3 className="text-lg font-bold text-foreground">Store & products</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        {hasStore ? 'Click to load products and analytics' : 'No store created yet'}
+                    </p>
+                </div>
+                {hasStore && (
+                    <button
+                        onClick={onToggle}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+                    >
+                        {show ? 'Hide' : 'Show store'}
+                    </button>
+                )}
+            </div>
+
+            {!show || !hasStore ? null : isLoading ? (
+                <div className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {Array.from({ length: 8 }).map((_, i) => (
+                            <div key={i} className="border border-border rounded-xl overflow-hidden">
+                                <Skeleton className="aspect-square w-full rounded-none" />
+                                <div className="p-3 space-y-2">
+                                    <Skeleton className="h-3 w-3/4" />
+                                    <Skeleton className="h-3 w-1/3" />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : (
+                <div className="space-y-6">
+                    {/* Analytics tiles */}
+                    {analytics && (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <MetricTile label="Total products"    value={analytics.totalProducts}      Icon={FiPackage}     accent="bg-orange-500/10 text-orange-500" />
+                            <MetricTile label="Available"         value={analytics.availableCount}     Icon={FiCheckCircle} accent="bg-emerald-500/10 text-emerald-500" />
+                            <MetricTile label="Product views"     value={analytics.totalProductViews}  Icon={FiEye}         accent="bg-pink-500/10 text-pink-500" />
+                            <MetricTile label="Avg. product ⭐"   value={analytics.avgProductRating}   Icon={FiStar}        accent="bg-amber-500/10 text-amber-500" />
+                        </div>
+                    )}
+
+                    {/* Store storefront link */}
+                    {store?.slug && (
+                        <a
+                            href={`https://tailorshub.store/stores/${store.slug}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
+                        >
+                            <FiExternalLink size={13} /> Open public storefront
+                        </a>
+                    )}
+
+                    {/* Products grid */}
+                    {products.length === 0 ? (
+                        <p className="text-sm text-muted-foreground py-4 text-center">No products in this store yet</p>
+                    ) : (
+                        <div>
+                            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                                Products ({products.length})
+                            </p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                                {products.map((p) => (
+                                    <div key={p._id} className="border border-border rounded-xl overflow-hidden bg-muted/10">
+                                        <div className="aspect-square bg-muted/30 overflow-hidden relative">
+                                            {p.images?.[0] ? (
+                                                <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-muted-foreground/30">
+                                                    <FiPackage size={24} />
+                                                </div>
+                                            )}
+                                            {!p.isAvailable && (
+                                                <span className="absolute top-2 left-2 text-[10px] font-semibold bg-red-500/90 text-white px-2 py-0.5 rounded-full">
+                                                    Unavailable
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="p-3">
+                                            <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
+                                            <p className="text-xs text-primary font-bold mt-1 tabular-nums">
+                                                Rs. {(p.discountPrice || p.price).toLocaleString('en-PK')}
+                                            </p>
+                                            <div className="flex items-center justify-between mt-2 text-[11px] text-muted-foreground">
+                                                <span className="flex items-center gap-1"><FiEye size={10} /> {p.viewCount || 0}</span>
+                                                <span className="flex items-center gap-1"><FiStar size={10} /> {(p.averageRating || 0).toFixed(1)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function MetricTile({ Icon, label, value, accent }) {
+    return (
+        <div className="bg-muted/20 border border-border rounded-xl p-4">
+            <div className={`w-9 h-9 rounded-lg ${accent} flex items-center justify-center mb-3`}>
+                <Icon size={16} />
+            </div>
+            <p className="text-xl font-bold text-foreground tabular-nums leading-none">{value}</p>
+            <p className="text-[11px] text-muted-foreground mt-1.5">{label}</p>
+        </div>
+    );
+}
+
+// ── Page-level loading skeleton ──────────────────────────────────────────────
+function ShopDetailSkeleton() {
+    return (
+        <div className="p-4 md:p-6 space-y-6">
+            <Skeleton className="h-3 w-20" />
+            <div className="flex items-center gap-4">
+                <Skeleton className="w-16 h-16 rounded-2xl" />
+                <div className="space-y-2">
+                    <Skeleton className="h-6 w-48" />
+                    <Skeleton className="h-3 w-64" />
+                </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {Array.from({ length: 7 }).map((_, i) => <SkeletonCard key={i} />)}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Skeleton className="h-64 rounded-2xl" />
+                <Skeleton className="h-64 rounded-2xl" />
+            </div>
         </div>
     );
 }

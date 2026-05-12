@@ -4,6 +4,15 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+@theme {
+    --animate-shimmer: shimmer 1.6s infinite;
+}
+
+@keyframes shimmer {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
 /* ── Light theme (default) ─────────────────────────────────────── */
 :root {
   --primary: oklch(46% 0.14 165);
