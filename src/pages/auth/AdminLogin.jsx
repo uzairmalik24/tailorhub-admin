@@ -110,13 +110,16 @@ const AdminLogin = () => {
         if (Object.keys(newErrors).length === 0) {
             try {
                 const resp = await post('/admin/login', { email: form.email, password: form.password }, { showSuccessToast: false });
-                if (resp.data?.isSuccess && resp.data?.data?.accessToken) {
-                    dispatch(setAdminToken(resp.data.data.accessToken));
-                    localStorage.setItem('refreshToken', resp.data.data.refreshToken);
+                const body = resp?.data;
+                if (body?.success && body?.data?.accessToken) {
+                    dispatch(setAdminToken(body.data.accessToken));
+                    localStorage.setItem('refreshToken', body.data.refreshToken);
                     toast('success', 'Welcome back');
-                    navigate('/dashboard');
+                    navigate('/dashboard', { replace: true });
+                } else {
+                    toast('error', body?.message || 'Login failed');
                 }
-            } catch (err) {
+            } catch {
                 gsap.to(cardRef.current, {
                     x: [-10, 10, -10, 10, 0],
                     duration: 0.4,
@@ -212,9 +215,10 @@ const AdminLogin = () => {
                                 <button
                                     ref={buttonRef}
                                     onClick={handleSubmit}
+                                    disabled={isLoading}
                                     className="
                                         w-full bg-gradient-to-r from-primary to-primary/90
-                                        text-primary-foreground 
+                                        text-primary-foreground
                                         hover:shadow-lg hover:shadow-primary/25
                                         py-3 rounded-xl font-medium
                                         transition-all duration-300
@@ -223,9 +227,17 @@ const AdminLogin = () => {
                                         relative overflow-hidden
                                         group
                                         mt-6
+                                        disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100
+                                        flex items-center justify-center gap-2
                                     "
                                 >
-                                    <span className="relative z-10">Sign In</span>
+                                    {isLoading && (
+                                        <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                                        </svg>
+                                    )}
+                                    <span className="relative z-10">{isLoading ? 'Signing in…' : 'Sign In'}</span>
                                     <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
                                 </button>
                             </div>
