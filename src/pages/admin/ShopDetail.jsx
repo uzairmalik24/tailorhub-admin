@@ -34,20 +34,26 @@ function ModalShell({ open, onClose, children, maxWidth = 'max-w-md' }) {
     const [mounted, setMounted] = useState(open);
     const [visible, setVisible] = useState(false);
 
+    // Mount/visibility timing — separate from body lock so cleanup is independent
     useEffect(() => {
         if (open) {
             setMounted(true);
-            // next frame so transition runs from initial state
             requestAnimationFrame(() => setVisible(true));
-            document.body.style.overflow = 'hidden';
         } else {
             setVisible(false);
             const t = setTimeout(() => setMounted(false), 200);
-            document.body.style.overflow = '';
             return () => clearTimeout(t);
         }
     }, [open]);
 
+    // Body scroll lock — guaranteed to restore on close OR component unmount
+    useEffect(() => {
+        if (!open) return;
+        document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = ''; };
+    }, [open]);
+
+    // Esc to close
     useEffect(() => {
         if (!open) return;
         const onKey = (e) => { if (e.key === 'Escape') onClose(); };
