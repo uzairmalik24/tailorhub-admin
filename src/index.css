@@ -14,28 +14,26 @@
 }
 
 /* ── Light theme (default) ─────────────────────────────────────── */
+/* Brand primary = TailorHub orange (#FF7A33), hue ~47 in OKLCH */
 :root {
-  --primary: oklch(46% 0.14 165);
-  /* emerald-ish, your old hsl(152 69% 31%) */
-  --primary-foreground: oklch(99% 0.01 80);
-  /* near white */
+  --primary: oklch(72% 0.175 47);
+  /* TailorHub orange — matches public-site #FF7A33 */
+  --primary-foreground: oklch(99% 0.005 80);
 
-  --secondary: oklch(96.5% 0.025 165);
-  /* very light emerald tint */
-  --secondary-foreground: oklch(46% 0.14 165);
+  --secondary: oklch(96.5% 0.025 47);
+  /* very light orange tint */
+  --secondary-foreground: oklch(55% 0.16 47);
 
-  --tertiary: oklch(65% 0.13 185);
-  /* teal-500-ish */
-  --tertiary-foreground: oklch(99% 0.01 80);
+  --tertiary: oklch(70% 0.14 28);
+  /* warm coral as accent */
+  --tertiary-foreground: oklch(99% 0.005 80);
 
-  --background: oklch(99.8% 0.005 80);
-  /* clean white with tiny warmth */
-  --foreground: oklch(14% 0.03 240);
-  --muted: oklch(96.5% 0.018 165);
-  /* tinted light gray */
-  --muted-foreground: oklch(48% 0.04 240);
-  --border: oklch(90% 0.025 165);
-  --input: oklch(90% 0.025 165);
+  --background: oklch(99.8% 0.003 80);
+  --foreground: oklch(14% 0.025 240);
+  --muted: oklch(96.5% 0.012 47);
+  --muted-foreground: oklch(48% 0.035 240);
+  --border: oklch(91% 0.018 47);
+  --input: oklch(91% 0.018 47);
   --ring: var(--primary);
 
   --card: var(--background);
@@ -45,14 +43,12 @@
   --accent: var(--muted);
   --accent-foreground: var(--muted-foreground);
   --destructive: oklch(58% 0.24 27);
-  /* red for errors */
   --destructive-foreground: oklch(99% 0 0);
 
   --radius: 0.625rem;
 
-  /* Sidebar fallbacks if used – adjust as needed */
-  --sidebar: oklch(99% 0.005 80);
-  --sidebar-foreground: oklch(14% 0.03 240);
+  --sidebar: oklch(99% 0.003 80);
+  --sidebar-foreground: oklch(14% 0.025 240);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
   --sidebar-accent: var(--muted);
@@ -60,35 +56,35 @@
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
 
-  /* Chart colors – using emerald/teal palette variations */
-  --chart-1: oklch(62% 0.18 165);
-  --chart-2: oklch(68% 0.15 185);
-  --chart-3: oklch(52% 0.16 170);
-  --chart-4: oklch(75% 0.14 160);
-  --chart-5: oklch(58% 0.17 175);
+  /* Chart colors — warm palette to match brand */
+  --chart-1: oklch(72% 0.18 47);   /* primary orange */
+  --chart-2: oklch(70% 0.16 28);   /* coral */
+  --chart-3: oklch(74% 0.15 78);   /* amber */
+  --chart-4: oklch(62% 0.14 25);   /* deep red */
+  --chart-5: oklch(80% 0.13 60);   /* peach */
 }
 
 /* Dark mode */
 .dark {
-  --primary: oklch(68% 0.145 165);
-  /* brighter emerald */
-  --primary-foreground: oklch(14% 0.03 240);
+  --primary: oklch(76% 0.17 47);
+  /* slightly brighter orange for contrast on dark bg */
+  --primary-foreground: oklch(14% 0.025 240);
 
-  --secondary: oklch(18% 0.035 165);
-  --secondary-foreground: oklch(68% 0.145 165);
+  --secondary: oklch(18% 0.035 47);
+  --secondary-foreground: oklch(76% 0.17 47);
 
-  --tertiary: oklch(72% 0.135 185);
-  --tertiary-foreground: oklch(14% 0.03 240);
+  --tertiary: oklch(74% 0.14 28);
+  --tertiary-foreground: oklch(14% 0.025 240);
 
-  --background: oklch(11% 0.035 240);
-  --foreground: oklch(98% 0.008 80);
-  --muted: oklch(20% 0.035 165);
-  --muted-foreground: oklch(70% 0.045 240);
-  --border: oklch(28% 0.045 165);
-  --input: oklch(28% 0.045 165);
+  --background: oklch(11% 0.025 240);
+  --foreground: oklch(98% 0.005 80);
+  --muted: oklch(20% 0.025 47);
+  --muted-foreground: oklch(70% 0.04 240);
+  --border: oklch(28% 0.035 47);
+  --input: oklch(28% 0.035 47);
   --ring: var(--primary);
 
-  --card: oklch(13.5% 0.035 240);
+  --card: oklch(13.5% 0.025 240);
   --card-foreground: var(--foreground);
   --popover: var(--card);
   --popover-foreground: var(--card-foreground);
@@ -97,9 +93,8 @@
   --destructive: oklch(68% 0.22 25);
   --destructive-foreground: oklch(98% 0 0);
 
-  /* Sidebar dark */
-  --sidebar: oklch(11% 0.035 240);
-  --sidebar-foreground: oklch(98% 0.008 80);
+  --sidebar: oklch(11% 0.025 240);
+  --sidebar-foreground: oklch(98% 0.005 80);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
   --sidebar-accent: var(--muted);
@@ -107,12 +102,11 @@
   --sidebar-border: var(--border);
   --sidebar-ring: var(--ring);
 
-  /* Charts dark – brighter versions */
-  --chart-1: oklch(72% 0.19 165);
-  --chart-2: oklch(78% 0.16 185);
-  --chart-3: oklch(65% 0.17 170);
-  --chart-4: oklch(82% 0.15 160);
-  --chart-5: oklch(70% 0.18 175);
+  --chart-1: oklch(78% 0.19 47);
+  --chart-2: oklch(76% 0.17 28);
+  --chart-3: oklch(80% 0.16 78);
+  --chart-4: oklch(70% 0.16 25);
+  --chart-5: oklch(84% 0.14 60);
 }
 
 /* ── Make variables available as Tailwind colors ── */

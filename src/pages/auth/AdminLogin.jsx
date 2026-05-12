@@ -10,8 +10,8 @@ import { TextInput, PasswordInput, CheckboxInput } from '../../components/ui/For
 
 const AdminLogin = () => {
     const [form, setForm] = useState({
-        email: 'admin@gmail.com',
-        password: '12345678',
+        email: '',
+        password: '',
         rememberMe: false,
     });
 
