@@ -11,6 +11,7 @@ import {
     FiX,
     FiChevronDown,
     FiShield,
+    FiPackage,
 } from 'react-icons/fi';
 import { selectAdmin } from '../../../store/slices/AdminSlice';
 
@@ -24,11 +25,12 @@ const DashboardSidebar = ({ onToggle }) => {
     const admin = useSelector(selectAdmin);
 
     const menuItems = [
-        { title: 'Dashboard',    icon: FiHome,     path: '/dashboard'           },
-        { title: 'Shop Owners',  icon: FiUsers,    path: '/dashboard/shops'     },
-        { title: 'Audit Log',    icon: FiActivity, path: '/dashboard/audit'     },
-        { title: 'Admins',       icon: FiShield,   path: '/dashboard/admins'    },
-        { title: 'Settings',     icon: FiSettings, path: '/dashboard/settings'  },
+        { title: 'Dashboard',          icon: FiHome,     path: '/dashboard'           },
+        { title: 'Shop Owners',        icon: FiUsers,    path: '/dashboard/shops'     },
+        { title: 'Subscription Plans', icon: FiPackage,  path: '/dashboard/plans'     },
+        { title: 'Audit Log',          icon: FiActivity, path: '/dashboard/audit'     },
+        { title: 'Admins',             icon: FiShield,   path: '/dashboard/admins'    },
+        { title: 'Settings',           icon: FiSettings, path: '/dashboard/settings'  },
     ];
 
     // Initialize state based on screen size

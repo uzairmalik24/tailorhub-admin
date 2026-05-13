@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
     FiArrowLeft, FiCheckCircle, FiSlash, FiTrash2, FiEdit2, FiSliders,
     FiUsers, FiPackage, FiShoppingBag, FiUserCheck, FiEye, FiClock, FiStar, FiX,
-    FiExternalLink, FiTrendingUp,
+    FiExternalLink, FiTrendingUp, FiCreditCard,
 } from 'react-icons/fi';
 import { useApi } from '../../hooks/useApi';
 import { useCachedApi, invalidateCache } from '../../hooks/useCachedApi';
@@ -86,11 +86,13 @@ function LimitsModal({ open, current, onClose, onSave, saving }) {
     useEffect(() => { setLimits(current || {}); }, [current]);
 
     const fields = [
-        { key: 'customers', label: 'Customers' },
-        { key: 'products',  label: 'Products'  },
-        { key: 'employees', label: 'Employees' },
-        { key: 'orders',    label: 'Orders'    },
-        { key: 'stores',    label: 'Stores'    },
+        { key: 'customers',     label: 'Customers'      },
+        { key: 'products',      label: 'Products'       },
+        { key: 'employees',     label: 'Employees'      },
+        { key: 'orders',        label: 'Orders'         },
+        { key: 'stores',        label: 'Stores'         },
+        { key: 'galleryImages', label: 'Gallery images' },
+        { key: 'services',      label: 'Services'       },
     ];
 
     return (
@@ -167,6 +169,7 @@ export default function ShopDetail() {
     const { patch, delete: del } = useApi();
     const [busy,        setBusy]        = useState(false);
     const [limitsOpen,  setLimitsOpen]  = useState(false);
+    const [planModalOpen, setPlanModalOpen] = useState(false);
     const [confirm,     setConfirm]     = useState(null);
 
     // Main detail (cached, 30s TTL)
@@ -190,14 +193,34 @@ export default function ShopDetail() {
 
     const data  = detailQ.data.data;
     const { shop, stats } = data;
-    const store = data.store;
+    const store           = data.store;
+    const subscription    = data.subscription || null;
+    const effectiveLimits = data.effectiveLimits || {};
 
     // After any mutation: clear all shop-related cache + refresh detail
     const refresh = async () => {
         invalidateCache('/shops');
         invalidateCache('/dashboard');
         invalidateCache('/audit');
+        invalidateCache('/plans');
         await detailQ.refresh();
+    };
+
+    const doAssignPlan = async ({ planId, expiresAt, notes }) => {
+        setBusy(true);
+        try {
+            await patch(`/plans/subscriptions/${id}`, { planId, expiresAt, notes });
+            setPlanModalOpen(false);
+            await refresh();
+        } finally { setBusy(false); }
+    };
+
+    const doCancelSubscription = async () => {
+        setBusy(true);
+        try {
+            await del(`/plans/subscriptions/${id}`);
+            await refresh();
+        } finally { setBusy(false); setConfirm(null); }
     };
 
     const doApprove = async () => {
@@ -310,41 +333,54 @@ export default function ShopDetail() {
                 <StatTile icon={FiStar}        label="Reviews"   value={stats.reviews}   accent="bg-amber-500/10 text-amber-500" />
             </div>
 
-            {/* Limits + Store side-by-side */}
+            {/* Subscription panel */}
+            <SubscriptionPanel
+                subscription={subscription}
+                effectiveLimits={effectiveLimits}
+                stats={stats}
+                onChange={() => setPlanModalOpen(true)}
+                onCancel={() => setConfirm({
+                    type: 'cancel-sub',
+                    danger: true,
+                    title: 'Cancel subscription?',
+                    body: 'The shop will fall back to the default plan limits.',
+                    action: doCancelSubscription,
+                })}
+                onEditOverride={() => setLimitsOpen(true)}
+                hasOverride={Object.values(shop.limits || {}).some((v) => v !== null && v !== undefined)}
+            />
+
+            {/* Store info */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Current limits */}
                 <div className="bg-card border border-border rounded-2xl p-6">
-                    <div className="flex items-center justify-between mb-5">
-                        <h3 className="text-lg font-bold text-foreground">Current limits</h3>
-                        <button
-                            onClick={() => setLimitsOpen(true)}
-                            className="text-sm text-primary font-semibold hover:underline inline-flex items-center gap-1"
-                        >
-                            <FiEdit2 size={12} /> Edit
-                        </button>
-                    </div>
-                    <div className="divide-y divide-border">
-                        {Object.entries({
-                            customers: 'Customers',
-                            products:  'Products',
-                            employees: 'Employees',
-                            orders:    'Orders',
-                            stores:    'Stores',
-                        }).map(([key, label]) => {
-                            const cap = shop.limits?.[key] ?? 0;
-                            const used = stats[key] ?? 0;
-                            const unlimited = cap === 0;
-                            return (
-                                <div key={key} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                                    <span className="text-sm font-medium text-foreground">{label}</span>
-                                    <span className="text-sm tabular-nums">
-                                        <span className="text-foreground font-semibold">{used}</span>
-                                        <span className="text-muted-foreground"> / {unlimited ? '∞' : cap}</span>
-                                    </span>
-                                </div>
-                            );
-                        })}
-                    </div>
+                    <h3 className="text-lg font-bold text-foreground mb-5">Custom override</h3>
+                    {Object.values(shop.limits || {}).some((v) => v !== null && v !== undefined) ? (
+                        <>
+                            <p className="text-xs text-muted-foreground mb-4">
+                                These fields are set on this shop and beat the subscription plan.
+                            </p>
+                            <div className="divide-y divide-border">
+                                {Object.entries(shop.limits || {}).filter(([, v]) => v !== null && v !== undefined).map(([key, val]) => (
+                                    <div key={key} className="flex items-center justify-between py-3 first:pt-0 last:pb-0 text-sm">
+                                        <span className="text-foreground capitalize">{key}</span>
+                                        <span className="font-semibold text-foreground tabular-nums">{val === 0 ? '∞' : val}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <button onClick={() => setLimitsOpen(true)} className="mt-4 text-sm text-primary font-semibold hover:underline inline-flex items-center gap-1">
+                                <FiEdit2 size={12} /> Edit override
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <p className="text-sm text-muted-foreground mb-4">
+                                No override. This shop is using the plan&apos;s limits.
+                            </p>
+                            <button onClick={() => setLimitsOpen(true)} className="text-sm text-primary font-semibold hover:underline">
+                                Add custom override →
+                            </button>
+                        </>
+                    )}
                 </div>
 
                 {/* Store info */}
@@ -431,7 +467,189 @@ export default function ShopDetail() {
                 onCancel={() => setConfirm(null)}
                 onConfirm={() => confirm?.action()}
             />
+
+            <ChangePlanModal
+                open={planModalOpen}
+                currentPlanId={subscription?.planId?._id}
+                onClose={() => setPlanModalOpen(false)}
+                onSave={doAssignPlan}
+                saving={busy}
+            />
         </div>
+    );
+}
+
+// ── Subscription panel ────────────────────────────────────────────────────────
+function SubscriptionPanel({ subscription, effectiveLimits, stats, onChange, onCancel, onEditOverride, hasOverride }) {
+    const plan = subscription?.planId;
+    const expiresAt = subscription?.expiresAt;
+    const expired = expiresAt && new Date(expiresAt) < new Date();
+
+    return (
+        <div className="bg-card border border-border rounded-2xl p-6">
+            <div className="flex items-start justify-between gap-4 mb-5">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <FiCreditCard className="text-primary" size={18} />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-foreground">
+                            {plan ? plan.name : 'No subscription'}
+                            {expired && <span className="ml-2 text-xs font-semibold text-red-600 bg-red-500/10 px-2 py-0.5 rounded-full">Expired</span>}
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                            {plan ? (
+                                <>
+                                    {plan.price === 0 ? 'Free' : `Rs. ${plan.price?.toLocaleString('en-PK') ?? plan.price}`}
+                                    {plan.durationDays > 0 && ` · ${plan.durationDays} day${plan.durationDays !== 1 ? 's' : ''}`}
+                                    {expiresAt && (
+                                        <> · {expired ? 'Expired' : 'Expires'} {new Date(expiresAt).toLocaleDateString('en-PK')}</>
+                                    )}
+                                </>
+                            ) : (
+                                'Falling back to hardcoded free defaults'
+                            )}
+                        </p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={onChange} className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90">
+                        {plan ? 'Change plan' : 'Assign plan'}
+                    </button>
+                    {plan && (
+                        <button onClick={onCancel} className="text-xs text-muted-foreground hover:text-red-600 transition-colors px-2 py-2">
+                            Cancel
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <div className="border-t border-border pt-5">
+                <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Effective limits</p>
+                    {hasOverride && (
+                        <span className="text-[10px] font-semibold text-amber-600 bg-amber-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                            Has override
+                        </span>
+                    )}
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                        { key: 'customers',     label: 'Customers'  },
+                        { key: 'products',      label: 'Products'   },
+                        { key: 'employees',     label: 'Employees'  },
+                        { key: 'orders',        label: 'Orders'     },
+                        { key: 'stores',        label: 'Stores'     },
+                        { key: 'galleryImages', label: 'Gallery'    },
+                        { key: 'services',      label: 'Services'   },
+                    ].map(({ key, label }) => {
+                        const cap = effectiveLimits[key] ?? 0;
+                        const used = stats?.[key] ?? 0;
+                        const unlimited = cap === 0;
+                        const overused = !unlimited && used > cap;
+                        return (
+                            <div key={key} className="bg-muted/20 border border-border rounded-xl p-3">
+                                <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
+                                <p className={`text-sm font-semibold tabular-nums ${overused ? 'text-red-600' : 'text-foreground'}`}>
+                                    {used} <span className="text-muted-foreground font-normal">/ {unlimited ? '∞' : cap}</span>
+                                </p>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Change Plan modal ─────────────────────────────────────────────────────────
+function ChangePlanModal({ open, currentPlanId, onClose, onSave, saving }) {
+    const [selected,  setSelected]  = useState(currentPlanId || '');
+    const [expiresAt, setExpiresAt] = useState('');
+    const [notes,     setNotes]     = useState('');
+    const plansQ = useCachedApi('/plans', null, { ttl: 60_000, enabled: open });
+
+    useEffect(() => { setSelected(currentPlanId || ''); }, [currentPlanId, open]);
+
+    return (
+        <ModalShell open={open} onClose={onClose} maxWidth="max-w-lg">
+            <div className="flex items-center justify-between mb-1">
+                <h3 className="text-lg font-bold text-foreground">Assign subscription</h3>
+                <button onClick={onClose} className="p-1 rounded-lg hover:bg-muted/40">
+                    <FiX size={18} />
+                </button>
+            </div>
+            <p className="text-xs text-muted-foreground mb-5">Pick a plan to grant this shop.</p>
+
+            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                {plansQ.isLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)
+                ) : (plansQ.data?.data?.plans || []).filter((p) => p.isActive).map((p) => (
+                    <button
+                        key={p._id}
+                        onClick={() => setSelected(p._id)}
+                        className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                            selected === p._id
+                                ? 'border-primary bg-primary/5'
+                                : 'border-border bg-card hover:border-border'
+                        }`}
+                    >
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-bold text-foreground">{p.name}</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    {p.price === 0 ? 'Free' : `Rs. ${p.price.toLocaleString('en-PK')}`}
+                                    {p.durationDays > 0 && ` · ${p.durationDays} days`}
+                                </p>
+                            </div>
+                            {p.isDefault && (
+                                <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">Default</span>
+                            )}
+                        </div>
+                    </button>
+                ))}
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label className="block text-[11px] font-semibold text-foreground/70 uppercase tracking-wider mb-2">
+                        Expires at (optional)
+                    </label>
+                    <input
+                        type="date"
+                        value={expiresAt}
+                        onChange={(e) => setExpiresAt(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg bg-muted/30 border border-border text-sm text-foreground focus:outline-none focus:border-primary"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1.5">Leave blank to use plan&apos;s default duration.</p>
+                </div>
+                <div>
+                    <label className="block text-[11px] font-semibold text-foreground/70 uppercase tracking-wider mb-2">
+                        Notes (optional)
+                    </label>
+                    <input
+                        type="text"
+                        placeholder="Promo, refund, etc."
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg bg-muted/30 border border-border text-sm text-foreground focus:outline-none focus:border-primary"
+                    />
+                </div>
+            </div>
+
+            <div className="flex items-center gap-3 mt-6">
+                <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl bg-muted/40 text-sm font-medium text-foreground hover:bg-muted">
+                    Cancel
+                </button>
+                <button
+                    disabled={saving || !selected}
+                    onClick={() => onSave({ planId: selected, expiresAt: expiresAt || undefined, notes: notes || undefined })}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+                >
+                    {saving ? 'Saving…' : 'Assign'}
+                </button>
+            </div>
+        </ModalShell>
     );
 }
 

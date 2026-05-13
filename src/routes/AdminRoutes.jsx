@@ -6,6 +6,7 @@ import Dashboard from '../pages/admin/Dashboard';
 import Shops from '../pages/admin/Shops';
 import ShopDetail from '../pages/admin/ShopDetail';
 import AuditLog from '../pages/admin/AuditLog';
+import Plans from '../pages/admin/Plans';
 import ProtectedRoute from './guards/ProtectedRoute';
 
 export const adminRoutes = [
@@ -19,6 +20,7 @@ export const adminRoutes = [
                     { index: true,             element: <Dashboard /> },
                     { path: 'shops',           element: <Shops /> },
                     { path: 'shops/:id',       element: <ShopDetail /> },
+                    { path: 'plans',           element: <Plans /> },
                     { path: 'audit',           element: <AuditLog /> },
                     { path: 'admins',          element: <Admin /> },
                     { path: 'settings',        element: <AdminSettings /> },
