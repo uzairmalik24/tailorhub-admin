@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FiPlus, FiEdit2, FiTrash2, FiX, FiUsers, FiStar } from 'react-icons/fi';
 import { useApi } from '../../hooks/useApi';
 import { useCachedApi, invalidateCache } from '../../hooks/useCachedApi';
@@ -25,11 +25,43 @@ const EMPTY_PLAN = {
     limits: { customers: 100, products: 4, employees: 2, orders: 30, stores: 1, galleryImages: 2, services: 4 },
 };
 
+// Coerce input.value (string) → number | '' for state. Lets the user actually clear the field.
+function numOrEmpty(v) {
+    if (v === '' || v == null) return '';
+    const n = Number(v);
+    return Number.isFinite(n) ? n : '';
+}
+// Coerce state back → number on save (empty becomes 0)
+function toNum(v) {
+    if (v === '' || v == null) return 0;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+}
+
 function PlanModal({ open, plan, onClose, onSave, saving }) {
-    const [form, setForm] = useState(plan || EMPTY_PLAN);
+    const [form, setForm] = useState(EMPTY_PLAN);
     const isEdit = !!plan?._id;
 
+    // Reset/sync form whenever modal opens or the plan being edited changes.
+    // This fixes "past data prefilled" when reopening after a previous edit.
+    useEffect(() => {
+        if (!open) return;
+        setForm(plan ? { ...EMPTY_PLAN, ...plan, limits: { ...EMPTY_PLAN.limits, ...(plan.limits || {}) } } : EMPTY_PLAN);
+    }, [open, plan?._id]); // eslint-disable-line react-hooks/exhaustive-deps
+
     if (!open) return null;
+
+    const handleSave = () => {
+        const normalized = {
+            ...form,
+            price:        toNum(form.price),
+            durationDays: toNum(form.durationDays),
+            limits: Object.fromEntries(
+                LIMIT_FIELDS.map(({ key }) => [key, toNum(form.limits?.[key])])
+            ),
+        };
+        onSave(normalized);
+    };
 
     return (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 overflow-y-auto" onClick={onClose}>
@@ -46,7 +78,7 @@ function PlanModal({ open, plan, onClose, onSave, saving }) {
                             <label className="block text-xs font-semibold text-foreground/70 uppercase tracking-wider mb-2">Name *</label>
                             <input
                                 type="text" placeholder="Free, Pro, Premium…"
-                                value={form.name}
+                                value={form.name ?? ''}
                                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                                 className="w-full px-3 py-2.5 rounded-lg bg-muted/30 border border-border text-sm text-foreground focus:outline-none focus:border-primary"
                             />
@@ -55,8 +87,8 @@ function PlanModal({ open, plan, onClose, onSave, saving }) {
                             <label className="block text-xs font-semibold text-foreground/70 uppercase tracking-wider mb-2">Price (PKR)</label>
                             <input
                                 type="number" min="0"
-                                value={form.price ?? 0}
-                                onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+                                value={form.price === '' || form.price == null ? '' : form.price}
+                                onChange={(e) => setForm({ ...form, price: numOrEmpty(e.target.value) })}
                                 className="w-full px-3 py-2.5 rounded-lg bg-muted/30 border border-border text-sm text-foreground focus:outline-none focus:border-primary tabular-nums"
                             />
                         </div>
@@ -78,19 +110,19 @@ function PlanModal({ open, plan, onClose, onSave, saving }) {
                         </label>
                         <input
                             type="number" min="0"
-                            value={form.durationDays ?? 0}
-                            onChange={(e) => setForm({ ...form, durationDays: Number(e.target.value) })}
+                            value={form.durationDays === '' || form.durationDays == null ? '' : form.durationDays}
+                            onChange={(e) => setForm({ ...form, durationDays: numOrEmpty(e.target.value) })}
                             className="w-48 px-3 py-2.5 rounded-lg bg-muted/30 border border-border text-sm text-foreground focus:outline-none focus:border-primary tabular-nums"
                         />
                     </div>
 
                     <div className="flex items-center gap-6">
                         <label className="flex items-center gap-2 text-sm">
-                            <input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />
+                            <input type="checkbox" checked={!!form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} />
                             <span className="text-foreground">Active</span>
                         </label>
                         <label className="flex items-center gap-2 text-sm">
-                            <input type="checkbox" checked={form.isDefault} onChange={(e) => setForm({ ...form, isDefault: e.target.checked })} />
+                            <input type="checkbox" checked={!!form.isDefault} onChange={(e) => setForm({ ...form, isDefault: e.target.checked })} />
                             <span className="text-foreground">Default (auto-assigned to new shops)</span>
                         </label>
                     </div>
@@ -100,20 +132,23 @@ function PlanModal({ open, plan, onClose, onSave, saving }) {
                             Limits — set <code>0</code> for unlimited
                         </p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {LIMIT_FIELDS.map(({ key, label }) => (
-                                <div key={key} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-muted/20">
-                                    <label className="text-sm font-medium text-foreground">{label}</label>
-                                    <input
-                                        type="number" min="0"
-                                        value={form.limits?.[key] ?? 0}
-                                        onChange={(e) => setForm({
-                                            ...form,
-                                            limits: { ...form.limits, [key]: Number(e.target.value) },
-                                        })}
-                                        className="w-24 px-2.5 py-1.5 rounded-md bg-background border border-border text-sm text-foreground tabular-nums text-right focus:outline-none focus:border-primary"
-                                    />
-                                </div>
-                            ))}
+                            {LIMIT_FIELDS.map(({ key, label }) => {
+                                const v = form.limits?.[key];
+                                return (
+                                    <div key={key} className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-muted/20">
+                                        <label className="text-sm font-medium text-foreground">{label}</label>
+                                        <input
+                                            type="number" min="0"
+                                            value={v === '' || v == null ? '' : v}
+                                            onChange={(e) => setForm({
+                                                ...form,
+                                                limits: { ...form.limits, [key]: numOrEmpty(e.target.value) },
+                                            })}
+                                            className="w-24 px-2.5 py-1.5 rounded-md bg-background border border-border text-sm text-foreground tabular-nums text-right focus:outline-none focus:border-primary"
+                                        />
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
@@ -124,7 +159,7 @@ function PlanModal({ open, plan, onClose, onSave, saving }) {
                     </button>
                     <button
                         disabled={saving || !form.name?.trim()}
-                        onClick={() => onSave(form)}
+                        onClick={handleSave}
                         className="flex-1 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-50"
                     >
                         {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create plan'}
