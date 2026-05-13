@@ -6,6 +6,7 @@ import {
 import {
     FiUsers, FiPackage, FiShoppingBag, FiUserCheck, FiClock, FiSlash,
     FiTrendingUp, FiEye, FiActivity, FiArrowRight, FiChevronDown,
+    FiAlertCircle, FiCalendar, FiZapOff,
 } from 'react-icons/fi';
 import { useCachedApi } from '../../hooks/useCachedApi';
 import { Skeleton, SkeletonCard } from '../../components/ui/Skeleton';
@@ -56,15 +57,17 @@ export default function Dashboard() {
     const [days,      setDays]      = useState(30);
 
     // Each call uses an independent cache key → independent TTL + dedup
-    const overviewQ = useCachedApi('/dashboard/overview',        null,            { ttl: 30_000  });
-    const seriesQ   = useCachedApi('/dashboard/timeseries',      { days },        { ttl: 60_000  });
-    const activityQ = useCachedApi('/dashboard/recent-activity', null,            { ttl: 15_000  });
-    const topQ      = useCachedApi('/dashboard/top-shops',       { metric: topMetric, limit: 5 }, { ttl: 60_000 });
+    const overviewQ  = useCachedApi('/dashboard/overview',        null,            { ttl: 30_000  });
+    const seriesQ    = useCachedApi('/dashboard/timeseries',      { days },        { ttl: 60_000  });
+    const activityQ  = useCachedApi('/dashboard/recent-activity', null,            { ttl: 15_000  });
+    const topQ       = useCachedApi('/dashboard/top-shops',       { metric: topMetric, limit: 5 }, { ttl: 60_000 });
+    const attentionQ = useCachedApi('/dashboard/attention',       { expiringWindow: 10 }, { ttl: 60_000 });
 
-    const overview = overviewQ.data?.data || null;
-    const series   = seriesQ.data?.data?.series   || [];
-    const activity = activityQ.data?.data?.items  || [];
-    const topShops = topQ.data?.data?.items       || [];
+    const overview  = overviewQ.data?.data || null;
+    const series    = seriesQ.data?.data?.series  || [];
+    const activity  = activityQ.data?.data?.items || [];
+    const topShops  = topQ.data?.data?.items      || [];
+    const attention = attentionQ.data?.data || { expiringSoon: [], expired: [], inactive: [] };
 
     return (
         <div className="p-4 md:p-6 space-y-6">
@@ -107,6 +110,9 @@ export default function Dashboard() {
                         </div>
                     ))}
             </div>
+
+            {/* Attention Needed — only show if any of the three lists is non-empty */}
+            <AttentionSection isLoading={attentionQ.isLoading} attention={attention} />
 
             {/* Activity chart */}
             <div className="bg-card border border-border rounded-2xl p-6">
@@ -251,6 +257,121 @@ export default function Dashboard() {
                     )}
                 </div>
             </div>
+        </div>
+    );
+}
+
+// ── Attention Needed section ─────────────────────────────────────────────────
+function AttentionSection({ isLoading, attention }) {
+    const { expiringSoon = [], expired = [], inactive = [] } = attention;
+    const totalIssues = expiringSoon.length + expired.length + inactive.length;
+
+    if (isLoading) {
+        return (
+            <div className="bg-card border border-border rounded-2xl p-6">
+                <Skeleton className="h-5 w-48 mb-5" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)}
+                </div>
+            </div>
+        );
+    }
+
+    if (totalIssues === 0) return null;
+
+    return (
+        <div className="bg-card border border-border rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                    <FiAlertCircle className="text-amber-500" size={18} />
+                </div>
+                <div>
+                    <h3 className="text-lg font-bold text-foreground">Attention needed</h3>
+                    <p className="text-xs text-muted-foreground">{totalIssues} shop{totalIssues !== 1 ? 's' : ''} need a closer look</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <AttentionGroup
+                    title="Expiring soon"
+                    subtitle="Within 10 days"
+                    icon={FiCalendar}
+                    accent="text-amber-600 bg-amber-500/10"
+                    items={expiringSoon.map((e) => ({
+                        shop:    e.shop,
+                        primary: e.plan?.name || 'No plan',
+                        meta:    e.daysLeft != null ? `${e.daysLeft}d left` : 'No expiry',
+                        metaTone: e.daysLeft <= 3 ? 'text-red-600' : 'text-amber-600',
+                    }))}
+                />
+                <AttentionGroup
+                    title="Expired"
+                    subtitle="Subscription lapsed"
+                    icon={FiClock}
+                    accent="text-red-600 bg-red-500/10"
+                    items={expired.map((e) => ({
+                        shop:    e.shop,
+                        primary: e.plan?.name || 'No plan',
+                        meta:    e.daysLeft != null ? `${Math.abs(e.daysLeft)}d ago` : 'Expired',
+                        metaTone: 'text-red-600',
+                    }))}
+                />
+                <AttentionGroup
+                    title="Inactive"
+                    subtitle="No customers or orders, > 14 days old"
+                    icon={FiZapOff}
+                    accent="text-muted-foreground bg-muted/30"
+                    items={inactive.map((e) => ({
+                        shop:    e.shop,
+                        primary: e.reason,
+                        meta:    `${e.daysOld}d old`,
+                        metaTone: 'text-muted-foreground',
+                    }))}
+                />
+            </div>
+        </div>
+    );
+}
+
+function AttentionGroup({ title, subtitle, icon: Icon, accent, items }) {
+    return (
+        <div className="bg-muted/20 border border-border rounded-xl p-4">
+            <div className="flex items-start gap-3 mb-4">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${accent}`}>
+                    <Icon size={14} />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">{title}</p>
+                    <p className="text-[11px] text-muted-foreground">{subtitle}</p>
+                </div>
+                <span className="text-sm font-bold text-foreground tabular-nums">{items.length}</span>
+            </div>
+            {items.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-3">All clear</p>
+            ) : (
+                <div className="space-y-1">
+                    {items.slice(0, 5).map((it, idx) => (
+                        <Link
+                            key={it.shop._id || idx}
+                            to={`/dashboard/shops/${it.shop._id}`}
+                            className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-card transition-colors"
+                        >
+                            <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-foreground truncate">{it.shop.name}</p>
+                                <p className="text-[11px] text-muted-foreground truncate">{it.primary}</p>
+                            </div>
+                            <span className={`text-[11px] font-semibold tabular-nums shrink-0 ${it.metaTone}`}>
+                                {it.meta}
+                            </span>
+                        </Link>
+                    ))}
+                    {items.length > 5 && (
+                        <p className="text-[11px] text-muted-foreground text-center pt-1">
+                            + {items.length - 5} more
+                        </p>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

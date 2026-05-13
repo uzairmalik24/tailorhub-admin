@@ -83,7 +83,7 @@ export default function Shops() {
                         <thead className="bg-muted/30 text-left">
                             <tr className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                 <th className="px-5 py-3.5">Shop</th>
-                                <th className="px-5 py-3.5">Phone</th>
+                                <th className="px-5 py-3.5">Plan</th>
                                 <th className="px-5 py-3.5 text-right">Customers</th>
                                 <th className="px-5 py-3.5 text-right">Orders</th>
                                 <th className="px-5 py-3.5 text-right">Products</th>
@@ -130,11 +130,13 @@ export default function Shops() {
                                                 )}
                                                 <div className="min-w-0">
                                                     <p className="font-semibold text-foreground truncate">{s.name}</p>
-                                                    <p className="text-xs text-muted-foreground truncate">{s.email || '—'}</p>
+                                                    <p className="text-xs text-muted-foreground truncate">{s.phone}</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-5 py-4 text-muted-foreground tabular-nums">{s.phone}</td>
+                                        <td className="px-5 py-4">
+                                            <PlanCell subscription={s.subscription} />
+                                        </td>
                                         <td className="px-5 py-4 text-right text-foreground tabular-nums font-medium">{s.counts?.customers ?? 0}</td>
                                         <td className="px-5 py-4 text-right text-foreground tabular-nums font-medium">{s.counts?.orders ?? 0}</td>
                                         <td className="px-5 py-4 text-right text-foreground tabular-nums font-medium">{s.counts?.products ?? 0}</td>
@@ -184,6 +186,38 @@ export default function Shops() {
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+// ── Plan cell ─────────────────────────────────────────────────────────────────
+function PlanCell({ subscription }) {
+    if (!subscription) {
+        return <span className="text-xs text-muted-foreground">— No plan</span>;
+    }
+
+    const { plan, status, daysLeft, expiresAt } = subscription;
+    const planName = plan?.name || 'Unknown';
+
+    let badge = null;
+    if (status === 'expired') {
+        badge = <span className="text-[10px] font-semibold uppercase tracking-wider text-red-600 bg-red-500/10 px-1.5 py-0.5 rounded">Expired</span>;
+    } else if (status === 'cancelled') {
+        badge = <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/40 px-1.5 py-0.5 rounded">Cancelled</span>;
+    } else if (daysLeft === null) {
+        badge = <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded">Lifetime</span>;
+    } else if (daysLeft <= 3) {
+        badge = <span className="text-[10px] font-semibold uppercase tracking-wider text-red-600 bg-red-500/10 px-1.5 py-0.5 rounded">{daysLeft}d left</span>;
+    } else if (daysLeft <= 10) {
+        badge = <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded">{daysLeft}d left</span>;
+    } else {
+        badge = <span className="text-[10px] font-semibold text-muted-foreground">{daysLeft}d left</span>;
+    }
+
+    return (
+        <div className="flex flex-col gap-1">
+            <span className="text-sm font-semibold text-foreground">{planName}</span>
+            <div className="flex items-center gap-1.5">{badge}</div>
         </div>
     );
 }
