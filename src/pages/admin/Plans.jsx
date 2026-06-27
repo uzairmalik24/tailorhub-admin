@@ -22,7 +22,7 @@ const EMPTY_PLAN = {
     durationDays: 0,
     isActive: true,
     isDefault: false,
-    limits: { customers: 100, products: 4, employees: 2, orders: 30, stores: 1, galleryImages: 2, services: 4 },
+    limits: { customers: 100, products: 4, employees: 2, orders: 30, stores: 1, galleryImages: 10, services: 4 },
 };
 
 // Coerce input.value (string) → number | '' for state. Lets the user actually clear the field.
