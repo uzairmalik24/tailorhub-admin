@@ -412,6 +412,14 @@ export default function ShopDetail() {
                                 <span className="text-muted-foreground">Views</span>
                                 <span className="font-semibold text-foreground tabular-nums">{store.viewCount || 0}</span>
                             </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">WhatsApp clicks</span>
+                                <span className="font-semibold text-foreground tabular-nums">{store.whatsappClickCount || 0}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-muted-foreground">Phone clicks</span>
+                                <span className="font-semibold text-foreground tabular-nums">{store.phoneClickCount || 0}</span>
+                            </div>
                         </div>
                     ) : (
                         <p className="text-sm text-muted-foreground">No store created yet</p>
